@@ -29,11 +29,11 @@ def resolve_dns(domain, dns_server, location):
 
 
 async def take_screenshot(url, ip_addresses, location):
-    # Use the provided IP addresses instead of performing DNS lookup again
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        page = await browser.new_page()
-        # Go to the first IP address resolved
+        # Create a new browser context with ignoreHTTPSErrors set to True
+        context = await browser.new_context(ignore_https_errors=True)
+        page = await context.new_page()
         if ip_addresses:
             await page.goto('http://' + ip_addresses[0])
         else:
@@ -41,6 +41,7 @@ async def take_screenshot(url, ip_addresses, location):
             pass
         screenshot_path = f'screenshots/{location}_{url.replace("http://", "").replace("https://", "").replace("/", "_")}.png'
         await page.screenshot(path=f'static/{screenshot_path}')
+        await context.close()
         await browser.close()
         return screenshot_path
 
