@@ -1,6 +1,4 @@
 __pycache__
-static/screenshots/**
-__pycache__
 *.pyc
 *.pyo
 *.pyd

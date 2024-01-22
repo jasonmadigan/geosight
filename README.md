@@ -23,7 +23,15 @@ To set up GeoSight, you'll need Python installed on your system. The application
 
 ## Usage
 
-To run GeoSight, execute `python3 app.py` in your terminal. Open your web browser and navigate to `http://localhost:5000`. Enter a website URL to see how it is resolved and rendered in different geographic locations.
+To run GeoSight, execute `python3 app.py` in your terminal. Open your web browser and navigate to `http://localhost:5001`. Enter a website URL to see how it is resolved and rendered in different geographic locations.
+
+## Docker (Experimental)
+
+```bash
+docker build -t geosight .
+docker run -p 5001:5001 geosight
+```
+
 
 ## Screenshot
 
