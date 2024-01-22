@@ -29,21 +29,27 @@ def resolve_dns(domain, dns_server, location):
 
 
 async def take_screenshot(url, ip_addresses, location):
+    # Ensure that ip_addresses is not empty
+    if not ip_addresses:
+        print(f"No IP address resolved for {url} in {location}")
+        return None
+
+    target_ip = ip_addresses[0]
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        # Create a new browser context with ignoreHTTPSErrors set to True
+        browser = await p.chromium.launch(
+            args=[f'--host-resolver-rules=MAP {url} {target_ip}']
+        )
         context = await browser.new_context(ignore_https_errors=True)
         page = await context.new_page()
-        if ip_addresses:
-            await page.goto('http://' + ip_addresses[0])
-        else:
-            # Handle error or do something else if DNS resolution failed
-            pass
+
+        await page.goto(f'https://{url}')  # or http, depending on the requirement
         screenshot_path = f'screenshots/{location}_{url.replace("http://", "").replace("https://", "").replace("/", "_")}.png'
         await page.screenshot(path=f'static/{screenshot_path}')
         await context.close()
         await browser.close()
         return screenshot_path
+
 
 
 def get_screenshot(url, dns_server, location):
