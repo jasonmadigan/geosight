@@ -4,6 +4,8 @@ from playwright.async_api import async_playwright
 import asyncio
 import os
 from geo_config import dns_servers
+from threading import Thread
+import asyncio
 
 
 # This code ensures that the screenshots directory exists
@@ -43,13 +45,28 @@ async def take_screenshot(url, ip_addresses, location):
         return screenshot_path
 
 
-def get_screenshot(url, ip_addresses, location):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    # Pass the resolved IPs to take_screenshot
-    result = loop.run_until_complete(take_screenshot(url, ip_addresses, location))
-    loop.close()
-    return result
+def get_screenshot(url, dns_server, location):
+    def start_loop(loop):
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+
+    new_loop = asyncio.new_event_loop()
+    t = Thread(target=start_loop, args=(new_loop,))
+    t.start()
+
+    async def async_get_screenshot():
+        return await take_screenshot(url, dns_server, location)
+
+    future = asyncio.run_coroutine_threadsafe(async_get_screenshot(), new_loop)
+    return future.result()
+
+async def gather_screenshots(url):
+    tasks = []
+    for location, dns_server in dns_servers.items():
+        dns_info = resolve_dns(url, dns_server, location)
+        task = asyncio.create_task(get_screenshot(url, dns_info, location))
+        tasks.append(task)
+    return await asyncio.gather(*tasks)
 
 
 app = Flask(__name__)
@@ -59,14 +76,14 @@ def index():
     screenshots = []
     url = ''
     if request.method == 'POST':
-        url = request.form['url'].replace('http://', '').replace('https://', '').split('/')[0]  # Extract the domain
+        url = request.form['url'].replace('http://', '').replace('https://', '').split('/')[0]
         for location, dns_server in dns_servers.items():
             dns_info = resolve_dns(url, dns_server, location)
-            # Pass the resolved IPs directly to get_screenshot instead of resolving again
             screenshot_path = get_screenshot(url, dns_info, location)
-            # Pass a dictionary containing both screenshot and DNS info
             screenshots.append((location, {'screenshot': screenshot_path, 'dns_info': dns_info}))
     return render_template('index.html', screenshots=screenshots, original_url=url)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, threaded=False)
