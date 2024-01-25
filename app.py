@@ -6,6 +6,7 @@ import os
 from geo_config import dns_servers
 from threading import Thread
 import asyncio
+from urllib.parse import urlparse
 
 
 # This code ensures that the screenshots directory exists
@@ -38,13 +39,15 @@ async def take_screenshot(url, ip_addresses, location):
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            args=[f'--host-resolver-rules=MAP {url} {target_ip}']
+            args=[f'--host-resolver-rules=MAP {urlparse(url).netloc} {target_ip}']
         )
         context = await browser.new_context(ignore_https_errors=True)
         page = await context.new_page()
 
-        await page.goto(f'https://{url}')  # or http, depending on the requirement
-        screenshot_path = f'screenshots/{location}_{url.replace("http://", "").replace("https://", "").replace("/", "_")}.png'
+        await page.goto(url)  # Use the full URL directly
+        # Extract just the domain for the filename
+        domain = urlparse(url).netloc
+        screenshot_path = f'screenshots/{location}_{domain.replace("http://", "").replace("https://", "").replace("/", "_")}.png'
         await page.screenshot(path=f'static/{screenshot_path}')
         await context.close()
         await browser.close()
@@ -81,14 +84,17 @@ app = Flask(__name__)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     screenshots = []
-    url = ''
+    full_url = ''
     if request.method == 'POST':
-        url = request.form['url'].replace('http://', '').replace('https://', '').split('/')[0]
+        # Keep the full URL including the path
+        full_url = request.form['url']
+        # Extract just the domain from the URL
+        domain = urlparse(full_url).netloc
         for location, dns_server in dns_servers.items():
-            dns_info = resolve_dns(url, dns_server, location)
-            screenshot_path = get_screenshot(url, dns_info, location)
+            dns_info = resolve_dns(domain, dns_server, location)
+            screenshot_path = get_screenshot(full_url, dns_info, location)
             screenshots.append((location, {'screenshot': screenshot_path, 'dns_info': dns_info}))
-    return render_template('index.html', screenshots=screenshots, original_url=url)
+    return render_template('index.html', screenshots=screenshots, original_url=full_url)
 
 
 
